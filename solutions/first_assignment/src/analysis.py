@@ -26,9 +26,12 @@ def extract_reviews(filepath: str):
 
 def construct_dictionary(reviews):
     dictionary = {}
+    # stop_words = get_stop_words('en')
     for text in reviews:
         for word in text.split(' '):
             word = word.lower()
+            # if word in stop_words:
+            #    continue
             if word not in dictionary:
                 dictionary[word] = 1.0
             else:
@@ -36,11 +39,9 @@ def construct_dictionary(reviews):
     return dictionary
 
 
-print("Extracting positive reviews..")
+print("Extracting train reviews..")
 train_df_pos = extract_reviews('../../../datasets/first_assignment/train/pos/')
-print("Extracting negative reviews..")
 train_df_neg = extract_reviews('../../../datasets/first_assignment/train/neg/')
-print("Concatenating reviews..\n")
 train_total = pd.concat([train_df_neg, train_df_pos])
 
 # prior probability of negative or positive review given training data
@@ -48,30 +49,34 @@ p_of_positive = log(train_df_pos.size / (train_df_neg.size + train_df_pos.size))
 p_of_negative = log(train_df_neg.size / (train_df_neg.size + train_df_pos.size))
 
 # vocab with frequency for the negative reviews and the positive
-print("Making dictionary for positive reviews..")
-pos_dictionary = construct_dictionary(train_df_pos['reviews'])
-print("Making dictionary for negative reviews..")
-neg_dictionary = construct_dictionary(train_df_neg['reviews'])
 print("Making dictionary for all reviews..\n")
+pos_dictionary = construct_dictionary(train_df_pos['reviews'])
+neg_dictionary = construct_dictionary(train_df_neg['reviews'])
 total_dictionary = construct_dictionary(train_total['reviews'])
 
 # nr of words in total vocab
-total_cardinality = float(len(total_dictionary))
+vocab_size = float(len(total_dictionary))
 
 # positive and negative words total (including recounted words)
-nr_positive_words = float(sum(pos_dictionary.values()))
-nr_negative_words = float(sum(neg_dictionary.values()))
+pos_word_count = float(sum(pos_dictionary.values()))
+neg_word_count = float(sum(neg_dictionary.values()))
 
 
-def condprob_word(word: str, positive: bool, alpha: float):
+def condprob_word(word: str, positive: bool, alpha: float=1.0):
+    """
+    :param word: word to calculate conditional probability for
+    :param positive: calculate for positive dictionary or not
+    :param alpha: laplace smoothing (default 1)
+    :return: log-likelihood of word given class c (positive or negative)
+    """
     if positive and word in pos_dictionary:
-        return (pos_dictionary[word] + alpha) / (nr_positive_words + total_cardinality)
+        return log((pos_dictionary[word] + alpha) / (pos_word_count + vocab_size))
     elif positive:
-        return alpha / (nr_positive_words + total_cardinality)
+        return log(alpha / (pos_word_count + vocab_size))
     elif word in neg_dictionary:
-        return (neg_dictionary[word] + alpha) / (nr_negative_words + total_cardinality)
+        return log((neg_dictionary[word] + alpha) / (neg_word_count + vocab_size))
     else:
-        return alpha / (nr_negative_words + total_cardinality)
+        return log(alpha / (neg_word_count + vocab_size))
 
 
 def classify_reviews(reviews):
@@ -83,8 +88,8 @@ def classify_reviews(reviews):
 
         for word in text.split(' '):
             word = word.lower()
-            is_positive += log(condprob_word(word, True, 1.0))
-            is_negative += log(condprob_word(word, False, 1.0))
+            is_positive += condprob_word(word, True)
+            is_negative += condprob_word(word, False)
 
         if is_negative > is_positive:
             negative_count += 1
@@ -100,7 +105,6 @@ def classify_reviews(reviews):
 print("Extracting test reviews..")
 test_df_pos = extract_reviews('../../../datasets/first_assignment/test/pos/')
 test_df_neg = extract_reviews('../../../datasets/first_assignment/test/neg/')
-test_total = pd.concat([test_df_neg, test_df_pos])
 
 print("Classifying test reviews..\n")
 true_pos, false_pos = classify_reviews(test_df_pos['reviews'])

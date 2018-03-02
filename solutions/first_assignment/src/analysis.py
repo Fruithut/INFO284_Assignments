@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+from math import log
 from functools import reduce
 from collections import Counter
 import seaborn as sns
@@ -24,19 +25,14 @@ def extract_reviews(filepath: str):
 
 
 def construct_dictionary(reviews):
-    """
-    :param reviews: takes a pandas.Series object
-    :return: a dictionary of every word that exist pandas.Series object together
-    with the total number of times the word has been encountered
-    """
     dictionary = {}
     for text in reviews:
         for word in text.split(' '):
             word = word.lower()
             if word not in dictionary:
-                dictionary[word] = 1
+                dictionary[word] = 1.0
             else:
-                dictionary[word] += 1
+                dictionary[word] += 1.0
     return dictionary
 
 
@@ -48,8 +44,8 @@ print("Concatenating reviews..\n")
 train_total = pd.concat([train_df_neg, train_df_pos])
 
 # prior probability of negative or positive review given training data
-p_of_positive = train_df_pos.size / (train_df_neg.size + train_df_pos.size)
-p_of_negative = 1 - p_of_positive
+p_of_positive = log(train_df_pos.size / (train_df_neg.size + train_df_pos.size))
+p_of_negative = log(train_df_neg.size / (train_df_neg.size + train_df_pos.size))
 
 # vocab with frequency for the negative reviews and the positive
 print("Making dictionary for positive reviews..")
@@ -60,59 +56,42 @@ print("Making dictionary for all reviews..\n")
 total_dictionary = construct_dictionary(train_total['reviews'])
 
 # nr of words in total vocab
-total_cardinality = len(total_dictionary)
+total_cardinality = float(len(total_dictionary))
 
 # positive and negative words total (including recounted words)
-nr_positive_words = sum(pos_dictionary.values())
-nr_negative_words = sum(neg_dictionary.values())
+nr_positive_words = float(sum(pos_dictionary.values()))
+nr_negative_words = float(sum(neg_dictionary.values()))
+
+
+def condprob_word(word: str, positive: bool, alpha: float):
+    if positive and word in pos_dictionary:
+        return (pos_dictionary[word] + alpha) / (nr_positive_words + total_cardinality)
+    elif positive:
+        return alpha / (nr_positive_words + total_cardinality)
+    elif word in neg_dictionary:
+        return (neg_dictionary[word] + alpha) / (nr_negative_words + total_cardinality)
+    else:
+        return alpha / (nr_negative_words + total_cardinality)
 
 
 def classify_reviews(reviews):
     positive_count = 0
     negative_count = 0
     for text in reviews:
-        p_word_positive = []
-        p_word_negative = []
+        is_positive = p_of_positive
+        is_negative = p_of_negative
 
-        # p(frequency of word in training set | given positive or negative)
         for word in text.split(' '):
             word = word.lower()
+            is_positive += log(condprob_word(word, True, 1.0))
+            is_negative += log(condprob_word(word, False, 1.0))
 
-            denominator = 1
-            if word in total_dictionary:
-                denominator += total_dictionary[word]
-
-            # calculate for p(word| given positive class)
-            if word in pos_dictionary:
-                p_word_positive.append(
-                    (pos_dictionary[word] + 1 / (nr_positive_words + total_cardinality)) / denominator)
-            elif word in neg_dictionary:
-                # laplace smoothing
-                p_word_positive.append((1 / (nr_positive_words + total_cardinality)))
-
-            # calculate for p(word| given negative class)
-            if word in neg_dictionary:
-                p_word_negative.append(
-                    (neg_dictionary[word] + 1 / (nr_negative_words + total_cardinality)) / denominator)
-            elif word in pos_dictionary:
-                # laplace smoothing
-                p_word_negative.append(1 / (nr_negative_words + total_cardinality))
-
-        # probability of review being positive
-        result_pos = reduce(lambda x, y: x * y, p_word_positive)
-        result_pos *= p_of_positive
-
-        # probability of review being negative
-        result_neg = reduce(lambda x, y: x * y, p_word_negative)
-        result_neg *= p_of_negative
-
-        if result_neg > result_pos:
+        if is_negative > is_positive:
             negative_count += 1
         else:
             positive_count += 1
 
-        # print("Review: ", text, "\n Results -> pos or neg:\n ", result_neg,
-        #  " ", result_pos, "\n", "Result: ", is_positive)
+        # print("Review: ", text, "\n Results -> pos or neg:\n ", is_positive, " vs ", is_negative, "\n")
 
     return positive_count, negative_count
 

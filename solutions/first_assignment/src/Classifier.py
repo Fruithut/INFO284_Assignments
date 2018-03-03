@@ -1,7 +1,6 @@
 import pandas as pd
 import os
 from math import log
-import numpy as np
 
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -34,43 +33,44 @@ class NBTextClassifier:
                  to_clean: bool = False, encoding: str = 'utf-8', stopwords_lang: str = 'english'):
         """
         //todo: write desc
-        :param positive_path:
-        :param negative_path:
-        :param to_clean:
-        :param encoding:
-        :param stopwords_lang:
+        :param positive_path: path to positive train text
+        :param negative_path: path to negative train text
+        :param to_clean: to clean text and remove stopwords
+        :param encoding: encoding of text
+        :param stopwords_lang: define language for stopwords
         """
-        print("FITTING TRAINING DATA")
         self.to_clean = to_clean
         if to_clean:
             nltk.download('punkt')
             self.stop_words = stopwords.words(stopwords_lang)
 
-        print("  Extracting texts..")
+        print("FITTING TRAINING DATA")
+
+        print("\tExtracting texts..")
         train_pos = extract_reviews(positive_path, encoding)
         train_neg = extract_reviews(negative_path, encoding)
-        train_total = pd.concat([train_neg, train_pos])
 
-        print("  Constructing dictionaries..")
+        print("\tConstructing dictionaries..")
         self.positive_dict = self.construct_dictionary(train_pos['reviews'])
         self.negative_dict = self.construct_dictionary(train_neg['reviews'])
-        total_dict = self.construct_dictionary(train_total['reviews'])
+        # concatenate the two dictionaries
+        total_dict = self.positive_dict.copy()
+        total_dict.update(self.negative_dict)
+
         self.prob_negative = log(train_neg.size / (train_pos.size + train_neg.size))
         self.prob_positive = log(train_pos.size / (train_neg.size + train_pos.size))
-
         self.vocab_size = float(len(total_dict))
         self.positive_word_count = float(sum(self.positive_dict.values()))
         self.negative_word_count = float(sum(self.negative_dict.values()))
-        print("  Ready.\n")
+        print("\tReady.\n")
 
-    def clean_text(self, text):
+    def clean_text(self, string: str):
         """
-        //todo: write desc
-        :param text:
-        :return:
+        :param string: to be cleaned and filtered
+        :return: a list of words that av been cleaned and filtered by the stop_words-list
         """
         cleaned = []
-        tokens = word_tokenize(text)
+        tokens = word_tokenize(string)
         for word in tokens:
             word = word.lower()
             if word in self.stop_words:
@@ -94,28 +94,21 @@ class NBTextClassifier:
         else:
             return log(alpha / (self.negative_word_count + self.vocab_size))
 
-    def construct_dictionary(self, reviews):
+    def construct_dictionary(self, strings):
         """
-        //todo: write desc
-        :param reviews:
-        :return:
+        Creates a dictionary for all the strings in the format: {string: times_encountered}
+        :param strings: pandas.Series object with strings
+        :return: dict() object with frequency for all unique strings
         """
         dictionary = {}
-        for text in reviews:
+        for text in strings:
             if self.to_clean:
                 for word in self.clean_text(text):
-                    word = word.lower()
-                    if word not in dictionary:
-                        dictionary[word] = 1.0
-                    else:
-                        dictionary[word] += 1.0
+                    dictionary[word] = dictionary.get(word, 0.0) + 1.0
             else:
                 for word in text.split(' '):
                     word = word.lower()
-                    if word not in dictionary:
-                        dictionary[word] = 1.0
-                    else:
-                        dictionary[word] += 1.0
+                    dictionary[word] = dictionary.get(word, 0.0) + 1.0
         return dictionary
 
     def classify(self, positive_path: str, negative_path: str, encoding: str = 'utf-8'):
@@ -127,18 +120,18 @@ class NBTextClassifier:
         """
         print("ESTIMATING TEST DATA")
 
-        print("  Extracting texts to be classified..")
+        print("\tExtracting texts to be classified..")
         test_positive = extract_reviews(positive_path, encoding)
         test_negative = extract_reviews(negative_path, encoding)
         all_reviews = pd.concat([test_negative, test_positive])
-        classified_targets = []
 
+        classified_targets = []
         true_positive = 0
         false_positive = 0
         true_negative = 0
         false_negative = 0
 
-        print("  Estimating..")
+        print("\tEstimating..")
         for index, text in enumerate(all_reviews['reviews']):
             is_positive = self.prob_positive
             is_negative = self.prob_negative
@@ -170,9 +163,11 @@ class NBTextClassifier:
             if is_positive > is_negative:
                 result = 1
             classified_targets.append(result)
-        print("  Done.\n")
+        print("\tDone.\n")
 
-        print("Confusion Matrix:")
+        # todo: remove this and return a confusion matrix from method
+        print("Confusion Matrix:\n"
+              "----------------")
         print("TP   FP")
         print(true_positive, false_positive)
         print("FN   TN")

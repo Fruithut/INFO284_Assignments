@@ -1,12 +1,15 @@
 import pandas as pd
-import numpy as np
 import os
 from math import log
-from functools import reduce
-from collections import Counter
+import numpy as np
+
 import seaborn as sns
 import matplotlib.pyplot as plt
-from stop_words import get_stop_words
+
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+import nltk.downloader
+nltk.download('punkt')
 
 
 def extract_reviews(filepath: str):
@@ -24,14 +27,26 @@ def extract_reviews(filepath: str):
     return pd.DataFrame({'reviews': review_list, 'is_positive': pos_or_neg})
 
 
+stop_words = stopwords.words('english')
+
+
+def clean_text(text: str):
+    cleaned = []
+    tokens = word_tokenize(text)
+    for word in tokens:
+        word = word.lower()
+        if word in stop_words:
+            continue
+        cleaned.append(word)
+    return cleaned
+
+
 def construct_dictionary(reviews):
     dictionary = {}
-    # stop_words = get_stop_words('en')
     for text in reviews:
+        # Alternative: for word in clean_text(text):
         for word in text.split(' '):
             word = word.lower()
-            # if word in stop_words:
-            #    continue
             if word not in dictionary:
                 dictionary[word] = 1.0
             else:
@@ -62,7 +77,7 @@ pos_word_count = float(sum(pos_dictionary.values()))
 neg_word_count = float(sum(neg_dictionary.values()))
 
 
-def condprob_word(word: str, positive: bool, alpha: float=1.0):
+def condprob_word(word: str, positive: bool, alpha: float = 1.0):
     """
     :param word: word to calculate conditional probability for
     :param positive: calculate for positive dictionary or not
@@ -86,6 +101,7 @@ def classify_reviews(reviews):
         is_positive = p_of_positive
         is_negative = p_of_negative
 
+        # Alternative: for word in clean_text(text):
         for word in text.split(' '):
             word = word.lower()
             is_positive += condprob_word(word, True)
@@ -97,7 +113,6 @@ def classify_reviews(reviews):
             positive_count += 1
 
         # print("Review: ", text, "\n Results -> pos or neg:\n ", is_positive, " vs ", is_negative, "\n")
-
     return positive_count, negative_count
 
 
@@ -109,6 +124,17 @@ test_df_neg = extract_reviews('../../../datasets/first_assignment/test/neg/')
 print("Classifying test reviews..\n")
 true_pos, false_pos = classify_reviews(test_df_pos['reviews'])
 false_neg, true_neg = classify_reviews(test_df_neg['reviews'])
+
+print("TP   FP")
+print(true_pos, false_pos, "\n")
+print("FN   TN")
+print(false_neg, true_neg, "\n")
+print("Precision: ", (true_pos + true_neg) / (true_pos + true_neg + false_neg + false_pos))
+
+# precision on fitted data
+print("Classifying train reviews..\n")
+true_pos, false_pos = classify_reviews(train_df_pos['reviews'])
+false_neg, true_neg = classify_reviews(train_df_neg['reviews'])
 
 print("TP   FP")
 print(true_pos, false_pos, "\n")

@@ -27,16 +27,12 @@ def extract_reviews(path: str, encoding: str = 'utf-8'):
     return pd.DataFrame({'reviews': review_list, 'target': target_list})
 
 
-class NBTextClassifier:
+class NBTextClassifier(object):
 
-    def __init__(self, positive_path: str, negative_path: str,
-                 to_clean: bool = False, encoding: str = 'utf-8', stopwords_lang: str = 'english'):
+    def __init__(self, to_clean: bool = False, stopwords_lang: str = 'english'):
         """
         //todo: write desc
-        :param positive_path: path to positive train text
-        :param negative_path: path to negative train text
-        :param to_clean: to clean text and remove stopwords
-        :param encoding: encoding of text
+        :param to_clean: to clean and remove stopwords from data which will be fitted and classified
         :param stopwords_lang: define language for stopwords
         """
         self.to_clean = to_clean
@@ -44,25 +40,21 @@ class NBTextClassifier:
             nltk.download('punkt')
             self.stop_words = stopwords.words(stopwords_lang)
 
-        print("FITTING TRAINING DATA")
+        # these variables will hold frequencies, probabilities and
+        # dictionaries after fitting data to the classifier (see: fit())
+        self.positive_dict = None
+        self.negative_dict = None
+        self.prob_negative = None
+        self.prob_positive = None
+        self.vocab_size = None
+        self.positive_word_count = None
+        self.negative_word_count = None
 
-        print("\tExtracting texts..")
-        train_pos = extract_reviews(positive_path, encoding)
-        train_neg = extract_reviews(negative_path, encoding)
-
-        print("\tConstructing dictionaries..")
-        self.positive_dict = self.construct_dictionary(train_pos['reviews'])
-        self.negative_dict = self.construct_dictionary(train_neg['reviews'])
-        # concatenate the two dictionaries
-        total_dict = self.positive_dict.copy()
-        total_dict.update(self.negative_dict)
-
-        self.prob_negative = log(train_neg.size / (train_pos.size + train_neg.size))
-        self.prob_positive = log(train_pos.size / (train_neg.size + train_pos.size))
-        self.vocab_size = float(len(total_dict))
-        self.positive_word_count = float(sum(self.positive_dict.values()))
-        self.negative_word_count = float(sum(self.negative_dict.values()))
-        print("\tReady.\n")
+        # values are assigned after classifying test data
+        self.true_positive = 0
+        self.false_positive = 0
+        self.true_negative = 0
+        self.false_negative = 0
 
     def clean_text(self, string: str):
         """
@@ -111,6 +103,33 @@ class NBTextClassifier:
                     dictionary[word] = dictionary.get(word, 0.0) + 1.0
         return dictionary
 
+    def fit(self, positive_path: str, negative_path: str, encoding: str = 'utf-8'):
+        """
+        # TODO: write desc
+        :param positive_path:
+        :param negative_path:
+        :param encoding:
+        :return:
+        """
+        print("FITTING TRAINING DATA")
+        print("\tExtracting texts..")
+        train_pos = extract_reviews(positive_path, encoding)
+        train_neg = extract_reviews(negative_path, encoding)
+
+        print("\tConstructing dictionaries..")
+        self.positive_dict = self.construct_dictionary(train_pos['reviews'])
+        self.negative_dict = self.construct_dictionary(train_neg['reviews'])
+        # concatenate the two dictionaries
+        total_dict = self.positive_dict.copy()
+        total_dict.update(self.negative_dict)
+
+        self.prob_negative = log(train_neg.size / (train_pos.size + train_neg.size))
+        self.prob_positive = log(train_pos.size / (train_neg.size + train_pos.size))
+        self.vocab_size = float(len(total_dict))
+        self.positive_word_count = float(sum(self.positive_dict.values()))
+        self.negative_word_count = float(sum(self.negative_dict.values()))
+        print("\tReady.\n")
+
     def classify(self, positive_path: str, negative_path: str, encoding: str = 'utf-8'):
         """
         :param positive_path: path to positive test reviews
@@ -119,17 +138,13 @@ class NBTextClassifier:
         :return: //todo
         """
         print("ESTIMATING TEST DATA")
-
         print("\tExtracting texts to be classified..")
         test_positive = extract_reviews(positive_path, encoding)
         test_negative = extract_reviews(negative_path, encoding)
         all_reviews = pd.concat([test_negative, test_positive])
 
+        # TODO: return this list for comparison
         classified_targets = []
-        true_positive = 0
-        false_positive = 0
-        true_negative = 0
-        false_negative = 0
 
         print("\tEstimating..")
         for index, text in enumerate(all_reviews['reviews']):
@@ -150,27 +165,30 @@ class NBTextClassifier:
             # count true/false positive and negatives
             if all_reviews['target'].iloc[index] == 1:
                 if is_positive > is_negative:
-                    true_positive += 1
+                    self.true_positive += 1
                 else:
-                    false_positive += 1
+                    self.false_positive += 1
             else:
                 if is_negative > is_positive:
-                    true_negative += 1
+                    self.true_negative += 1
                 else:
-                    false_negative += 1
+                    self.false_negative += 1
 
             # result of classifying a given text
             if is_positive > is_negative:
                 result = 1
             classified_targets.append(result)
+
         print("\tDone.\n")
 
-        # todo: remove this and return a confusion matrix from method
+    def confusion_matrix(self):
         print("Confusion Matrix:\n"
               "----------------")
         print("TP   FP")
-        print(true_positive, false_positive)
+        print(self.true_positive, self.false_positive)
         print("FN   TN")
-        print(false_negative, true_negative)
-        print("\nPrecision: ", (true_positive + true_negative) /
-              (true_positive + true_negative + false_negative + false_positive))
+        print(self.false_negative, self.true_negative)
+        print("\nPrecision: ", (self.true_positive + self.true_negative) /
+              (self.true_positive + self.true_negative + self.false_negative + self.false_positive))
+        print("Positive-class precision: ", self.true_positive / (self.true_positive + self.false_positive))
+        print("Negative-class precision: ", self.true_negative / (self.true_negative + self.false_negative))

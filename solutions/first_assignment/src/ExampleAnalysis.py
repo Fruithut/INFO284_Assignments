@@ -10,4 +10,5 @@ review_classifier.fit(positive_path='../../../datasets/first_assignment/train/po
 review_classifier.classify(positive_path='../../../datasets/first_assignment/test/pos/',
                            negative_path='../../../datasets/first_assignment/test/neg/')
 
-review_classifier.confusion_matrix()
+# single review classification
+# review_classifier.confusion_matrix()

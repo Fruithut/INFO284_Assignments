@@ -9,8 +9,8 @@ import nltk.downloader
 
 def extract_reviews(path: str, encoding: str = 'utf-8'):
     """
-    :param path: takes a folder of .txt files and reads them
-    :param encoding: encoding of .txt file
+    :param path: takes the path to a folder of .txt files and reads them
+    :param encoding: encoding of .txt files
     :return: pandas.DataFrame with reviews and target values (pos or neg)
     """
     review_list = []
@@ -27,7 +27,7 @@ def extract_reviews(path: str, encoding: str = 'utf-8'):
     return pd.DataFrame({'reviews': review_list, 'target': target_list})
 
 
-class NBTextClassifier(object):
+class NBReviewClassifier(object):
 
     def __init__(self, to_clean: bool = False, stopwords_lang: str = 'english'):
         """
@@ -38,10 +38,11 @@ class NBTextClassifier(object):
         self.to_clean = to_clean
         if to_clean:
             nltk.download('punkt')
+            nltk.download('stopwords')
             self.stop_words = stopwords.words(stopwords_lang)
 
         # these variables will hold frequencies, probabilities and
-        # dictionaries after fitting data to the classifier (see: fit())
+        # dictionaries after a call to the fit() method
         self.positive_dict = None
         self.negative_dict = None
         self.prob_negative = None
@@ -50,7 +51,7 @@ class NBTextClassifier(object):
         self.positive_word_count = None
         self.negative_word_count = None
 
-        # values are assigned after classifying test data
+        # values are assigned call to classify() method
         self.true_positive = 0
         self.false_positive = 0
         self.true_negative = 0
@@ -111,6 +112,13 @@ class NBTextClassifier(object):
         :param encoding:
         :return:
         """
+
+        # reset results from classify() method
+        self.true_positive = 0
+        self.false_positive = 0
+        self.true_negative = 0
+        self.false_negative = 0
+
         print("FITTING TRAINING DATA")
         print("\tExtracting texts..")
         train_pos = extract_reviews(positive_path, encoding)
@@ -180,6 +188,31 @@ class NBTextClassifier(object):
             classified_targets.append(result)
 
         print("\tDone.\n")
+
+    def predict(self, test_review: str):
+        """
+        # TODO: write desc
+        :param test_review:
+        :return: if the review
+        """
+        is_positive = self.prob_positive
+        is_negative = self.prob_negative
+        result = 0
+
+        if self.to_clean:
+            for word in self.clean_text(test_review):
+                is_positive += self.conditional_word(word, True)
+                is_negative += self.conditional_word(word, False)
+        else:
+            for word in test_review.split(' '):
+                word = word.lower()
+                is_positive += self.conditional_word(word, True)
+                is_negative += self.conditional_word(word, False)
+
+        if is_positive > is_negative:
+            result = 1
+
+        return result
 
     def confusion_matrix(self):
         print("Confusion Matrix:\n"

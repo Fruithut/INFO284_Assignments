@@ -225,3 +225,8 @@ class NBReviewClassifier(object):
               (self.true_positive + self.true_negative + self.false_negative + self.false_positive))
         print("Positive-class precision: ", self.true_positive / (self.true_positive + self.false_positive))
         print("Negative-class precision: ", self.true_negative / (self.true_negative + self.false_negative))
+        print("\n")
+        print("Error rate of test set:")
+        print("\n" and 1-(self.true_positive + self.true_negative) /
+              (self.true_positive + self.true_negative + self.false_negative + self.false_positive))
+

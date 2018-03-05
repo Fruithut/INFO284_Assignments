@@ -1,8 +1,8 @@
-from Classifier import NBTextClassifier
+from reviewtool import NBReviewClassifier
 
 # Example use of the classifier
 
-review_classifier = NBTextClassifier()
+review_classifier = NBReviewClassifier()
 
 review_classifier.fit(positive_path='../../../datasets/first_assignment/train/pos/',
                       negative_path='../../../datasets/first_assignment/train/neg/')

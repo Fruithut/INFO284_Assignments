@@ -31,7 +31,7 @@ class NBReviewClassifier(object):
 
     def __init__(self, to_clean: bool = False, stopwords_lang: str = 'english'):
         """
-        //todo: write desc
+        Initializes the classifier with instance variables and the required resources for data fitting and analysis
         :param to_clean: to clean and remove stopwords from data which will be fitted and classified
         :param stopwords_lang: define language for stopwords
         """
@@ -51,11 +51,11 @@ class NBReviewClassifier(object):
         self.positive_word_count = None
         self.negative_word_count = None
 
-        # values are assigned call to classify() method
-        self.true_positive = 0
-        self.false_positive = 0
-        self.true_negative = 0
-        self.false_negative = 0
+        # values are assigned after call to classify() method
+        self.true_positive = self.false_positive = self.true_negative = self.false_negative = 0
+
+        # boolean flag for if the model has been fitted
+        self.fitted = False
 
     def clean_text(self, string: str):
         """
@@ -106,18 +106,14 @@ class NBReviewClassifier(object):
 
     def fit(self, positive_path: str, negative_path: str, encoding: str = 'utf-8'):
         """
-        # TODO: write desc
-        :param positive_path:
-        :param negative_path:
-        :param encoding:
-        :return:
+        Fits the training data to the classification model
+        :param positive_path: path to folder containing positive reviews
+        :param negative_path: path to folder containing negative reviews
+        :param encoding: text encoding of the reviews
         """
 
-        # reset results from classify() method
-        self.true_positive = 0
-        self.false_positive = 0
-        self.true_negative = 0
-        self.false_negative = 0
+        # reset results from last call to classify() method
+        self.true_positive = self.false_positive = self.true_negative = self.false_negative = 0
 
         print("FITTING TRAINING DATA")
         print("\tExtracting texts..")
@@ -136,6 +132,8 @@ class NBReviewClassifier(object):
         self.vocab_size = float(len(total_dict))
         self.positive_word_count = float(sum(self.positive_dict.values()))
         self.negative_word_count = float(sum(self.negative_dict.values()))
+
+        self.fitted = True
         print("\tReady.\n")
 
     def classify(self, positive_path: str, negative_path: str, encoding: str = 'utf-8'):
@@ -143,17 +141,21 @@ class NBReviewClassifier(object):
         :param positive_path: path to positive test reviews
         :param negative_path: path to negative test reviews
         :param encoding: encoding of the text documents
-        :return: //todo
+        :return: a list of predictions for each review, None if model hasn't been fit
         """
+        if not self.fitted:
+            return None
+
+        # reset results from last call to classify() method
+        self.true_positive = self.false_positive = self.true_negative = self.false_negative = 0
+
         print("ESTIMATING TEST DATA")
         print("\tExtracting texts to be classified..")
         test_positive = extract_reviews(positive_path, encoding)
         test_negative = extract_reviews(negative_path, encoding)
         all_reviews = pd.concat([test_negative, test_positive])
 
-        # TODO: return this list for comparison
         classified_targets = []
-
         print("\tEstimating..")
         for index, text in enumerate(all_reviews['reviews']):
             is_positive = self.prob_positive
@@ -188,13 +190,16 @@ class NBReviewClassifier(object):
             classified_targets.append(result)
 
         print("\tDone.\n")
+        return classified_targets
 
     def predict(self, test_review: str):
         """
-        # TODO: write desc
-        :param test_review:
-        :return: if the review
+        :param test_review: text to be evaluated
+        :return: 0 if negative, 1 if positive, None if model hasn't been fit
         """
+        if not self.fitted:
+            return None
+
         is_positive = self.prob_positive
         is_negative = self.prob_negative
         result = 0
@@ -215,16 +220,36 @@ class NBReviewClassifier(object):
         return result
 
     def confusion_matrix(self):
-        print("Confusion Matrix:\n"
-              "----------------")
+        """
+        :return: a dictionary containing the true/false positives and negatives,
+        None if model hasn't been fit
+        """
+        if not self.fitted:
+            return None
+
+        return {'tp': self.true_positive, 'fp': self.false_positive,
+                'fn': self.false_negative, 'tn': self.true_negative}
+
+    def print_scores(self):
+        """
+        Prints a summary of the algorithm's performance after classification
+        has taken place.
+        :return: None if model hasn't been fit
+        """
+        if not self.fitted:
+            return None
+
+        print("Confusion Matrix:")
         print("TP   FP")
         print(self.true_positive, self.false_positive)
         print("FN   TN")
         print(self.false_negative, self.true_negative)
+
         print("\nPrecision: ", (self.true_positive + self.true_negative) /
               (self.true_positive + self.true_negative + self.false_negative + self.false_positive))
+
         print("Positive-class precision: ", self.true_positive / (self.true_positive + self.false_positive))
         print("Negative-class precision: ", self.true_negative / (self.true_negative + self.false_negative))
-        print("\nError rate of test set:",  1-(self.true_positive + self.true_negative) /
-              (self.true_positive + self.true_negative + self.false_negative + self.false_positive))
 
+        print("\nError rate of test set:", 1 - (self.true_positive + self.true_negative) /
+              (self.true_positive + self.true_negative + self.false_negative + self.false_positive))

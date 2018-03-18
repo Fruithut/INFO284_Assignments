@@ -157,7 +157,7 @@ class NBReviewClassifier(object):
 
         classified_targets = []
         print("\tEstimating..")
-        for index, text in enumerate(all_reviews['reviews']):
+        for review_index, text in enumerate(all_reviews['reviews']):
             is_positive = self.prob_positive
             is_negative = self.prob_negative
             result = 0
@@ -173,7 +173,7 @@ class NBReviewClassifier(object):
                     is_negative += self.conditional_word(word, False)
 
             # count true/false positive and negatives
-            if all_reviews['target'].iloc[index] == 1:
+            if all_reviews['target'].iloc[review_index] == 1:
                 if is_positive > is_negative:
                     self.true_positive += 1
                 else:

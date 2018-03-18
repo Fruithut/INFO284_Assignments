@@ -1,0 +1,48 @@
+The code is contained within 'reviewtool.py'.
+
+If you are running python through an IDE or running the python console in a terminal
+you can import the classifier by entering:
+
+	> from reviewtool import NBReviewClassifier
+
+then create a classifier object:
+
+	> review_classifier = NBReviewClassfier()
+
+alternatively you can enable cleaning of the text input to both the fitting and classifying
+(this will download a library of stopwords common for the given language):
+
+	> review_classifier = NBReviewClassfier(to_clean=True, stopwords_lang='english')
+
+to fit the training data you specify the path to the folder which contains the positive reviews,
+and the path to the folder which contains the negative reviews (you can also specify the encoding of the
+text files, this will default to 'utf-8'):
+
+	> review_classfier.fit(positive_path='/train/pos/', negative_path='/train/neg/', encoding='utf-8')
+
+to classify the test data you also specify the path to each folder (neg/posv) as the step above
+(this will return a list of the results 0/1 in the order the reviews were classified, if one wants to take a look
+at that information):
+
+	> results = review_classifier.classify(positive_path='/test/pos/', negative_path='/test/neg/', encoding='utf-8')
+
+to print the scores of the classification that have just taken place:
+
+	> review_classifier.print_scores()
+
+you can also get a dictionary of the false/true-positive and negatives by entering:
+
+	> confusion_matrix = review_classifier.confusion_matrix()
+
+there is also a method for classifying a single review after fitting the training data
+(this will return 0 if negative, 1 if positive):
+
+	> result = review_classifier.predict("You can enter your review here")
+
+
+Extra notes:
+- for each call to '.fit(..)' or '.classify(..)' the previous results/scores will be reset.
+- a call to either '.classify(..)', '.predict(..)', '.confusion_matrix()' or '.print_scores()'
+before using '.fit(..)' on any data will return 'None'.
+- the file 'ExampleAnalysis.py' is included to show how we used our code, the paths used are relative
+paths to the data in our repository.

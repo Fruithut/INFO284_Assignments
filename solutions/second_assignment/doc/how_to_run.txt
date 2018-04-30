@@ -1,0 +1,16 @@
+Our code is contained within a jupyter notebook file.
+We used jupyter lab to construct this solution.
+----------------------------------------------------------
+Requirements to run:
+Python
+Jupyter notebook or lab
+
+Libraries required:
+numpy
+pandas
+matplotlib
+seaborn
+sklearn
+collections
+----------------------------------------------------------
+Run from your favourite jupyter interface.

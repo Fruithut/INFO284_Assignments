@@ -12,5 +12,8 @@ matplotlib
 seaborn
 sklearn
 collections
-----------------------------------------------------------
+
 Run from your favourite jupyter interface.
+----------------------------------------------------------
+NB!: If you want to rerun the code with your own "seeds_dataset" file
+exchange the path of "pd.read_csv('path here', ...)" with your own.
